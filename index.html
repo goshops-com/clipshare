@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clipshare</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .animate-spin {
+            animation: spin 1s linear infinite;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-100 h-screen flex items-center justify-center">
+    <div class="bg-white rounded-lg shadow-lg p-8 w-80">
+        <div class="text-center mb-6">
+            <h2 class="text-2xl font-bold text-indigo-600 mb-0">Clipshare</h2>
+            <p class="text-sm text-gray-500 mt-0">from gopersonal.com</p>
+        </div>
+
+        <div class="space-y-4">
+            <label class="flex items-center space-x-3 cursor-pointer">
+                <input type="checkbox" id="audioCheckbox"
+                    class="form-checkbox h-5 w-5 text-indigo-600 transition duration-150 ease-in-out">
+                <span class="text-gray-700 font-medium">Record Audio</span>
+            </label>
+
+            <select id="audioDeviceSelect"
+                class="w-full px-3 py-2 text-gray-700 border rounded-lg focus:outline-none focus:border-indigo-500 transition-all duration-300 opacity-0 h-0 overflow-hidden">
+                <option>Select audio device...</option>
+            </select>
+
+            <label class="flex items-center space-x-3 cursor-pointer">
+                <input type="checkbox" id="cameraCheckbox"
+                    class="form-checkbox h-5 w-5 text-indigo-600 transition duration-150 ease-in-out">
+                <span class="text-gray-700 font-medium">Enable Camera</span>
+            </label>
+        </div>
+
+        <div class="mt-8 space-y-4">
+            <button id="startBtn"
+                class="w-full bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50 transition duration-150 ease-in-out">
+                Start Recording
+            </button>
+
+            <button id="stopBtn" disabled
+                class="w-full bg-red-500 text-white py-2 px-4 rounded-lg hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50 transition duration-150 ease-in-out opacity-50 cursor-not-allowed">
+                Stop Recording
+            </button>
+        </div>
+    </div>
+
+    <div id="loadingOverlay" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden items-center justify-center">
+        <div class="bg-white p-5 rounded-lg flex items-center space-x-4">
+            <div class="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
+            <div class="text-indigo-600 font-semibold">Uploading...</div>
+        </div>
+    </div>
+
+    <script src="renderer.js"></script>
+    <script>
+        const audioCheckbox = document.getElementById('audioCheckbox');
+        const audioDeviceSelect = document.getElementById('audioDeviceSelect');
+        const cameraCheckbox = document.getElementById('cameraCheckbox');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+
+        audioCheckbox.addEventListener('change', () => {
+            if (audioCheckbox.checked) {
+                audioDeviceSelect.classList.remove('opacity-0', 'h-0');
+                audioDeviceSelect.classList.add('opacity-100', 'h-10');
+            } else {
+                audioDeviceSelect.classList.add('opacity-0', 'h-0');
+                audioDeviceSelect.classList.remove('opacity-100', 'h-10');
+            }
+        });
+
+        startBtn.addEventListener('click', () => {
+            startBtn.disabled = true;
+            startBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            startBtn.classList.remove('hover:bg-indigo-700');
+
+            stopBtn.disabled = false;
+            stopBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            stopBtn.classList.add('hover:bg-red-600');
+        });
+
+        stopBtn.addEventListener('click', () => {
+            stopBtn.disabled = true;
+            stopBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            stopBtn.classList.remove('hover:bg-red-600');
+
+            startBtn.disabled = false;
+            startBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            startBtn.classList.add('hover:bg-indigo-700');
+
+            // Uncheck the camera checkbox and trigger change event
+            if (cameraCheckbox.checked) {
+                cameraCheckbox.checked = false;
+                cameraCheckbox.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        });
+    </script>
+</body>
+
+</html>

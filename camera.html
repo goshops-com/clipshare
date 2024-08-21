@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Camera Feed</title>
+    <style>
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            overflow: hidden;
+            background: transparent;
+        }
+
+        #container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.08);
+        }
+
+        #dragRegion {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 24px;
+            background: rgba(0, 0, 0, 0.5);
+            -webkit-app-region: drag;
+            border-top-left-radius: 12px;
+            border-top-right-radius: 12px;
+        }
+
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            background: black;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="container">
+        <div id="dragRegion"></div>
+        <video id="cameraFeed" autoplay></video>
+    </div>
+    <script>
+        async function startCamera() {
+            const videoElement = document.getElementById('cameraFeed');
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                videoElement.srcObject = stream;
+            } catch (error) {
+                console.error('Error accessing camera:', error);
+                alert('Failed to access the camera: ' + error.message);
+            }
+        }
+
+        // Start the camera when the page loads
+        startCamera();
+    </script>
+</body>
+
+</html>

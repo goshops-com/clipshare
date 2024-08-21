@@ -1,0 +1,54 @@
+{
+  "name": "clipshare",
+  "version": "1.0.0",
+  "description": "",
+  "main": "main.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "electron .",
+    "build": "node build.js"
+  },
+  "build": {
+    "appId": "com.yourname.clipshare",
+    "mac": {
+      "target": "dmg"
+    },
+    "dmg": {
+      "contents": [
+        {
+          "x": 410,
+          "y": 150,
+          "type": "link",
+          "path": "/Applications"
+        },
+        {
+          "x": 130,
+          "y": 150,
+          "type": "file"
+        }
+      ],
+      "window": {
+        "width": 540,
+        "height": 380
+      }
+    }
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "dotenv-webpack": "^8.1.0",
+    "electron": "^31.4.0",
+    "electron-builder": "^24.13.3",
+    "electron-packager": "^17.1.2"
+  },
+  "dependencies": {
+    "auto-launch": "^5.0.6",
+    "aws-sdk": "^2.1677.0",
+    "dotenv": "^16.4.5",
+    "ulid": "^2.3.0"
+  },
+  "permissions": [
+    "audioCapture"
+  ]
+}
