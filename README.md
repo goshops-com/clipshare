@@ -2,7 +2,7 @@
 
 **ClipShare** is a serverless screen recording application built as an open-source alternative to Loom. It empowers users to effortlessly record their screens, optionally capture camera footage, and seamlessly upload the recordings to an S3-compatible storage service. Powered by Electron, ClipShare offers a cross-platform solution that's both powerful and easy to deploy.
 
-![ClipShare Logo](https://example.com/clipshare-logo.png)
+![ClipShare Logo](https://github.com/goshops-com/clipshare/blob/main/icon.png?raw=true)
 
 ## 🚀 Features
 
