@@ -16,6 +16,14 @@ const AWS = require('aws-sdk');
 let tray = null;
 let window = null;
 
+// Ensure single instance
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+    app.quit();
+    return;
+}
+
 // Initialize AutoLaunch
 const clipShareAutoLauncher = new AutoLaunch({
     name: 'ClipShare',
@@ -70,7 +78,37 @@ function createWindow() {
     // window.webContents.openDevTools({ mode: 'detach' });
 }
 
+function handleTrayClick(event, bounds) {
+    if (!window) return;
+
+    const { x, y } = bounds;
+    const { height, width } = window.getBounds();
+
+    const yPosition = process.platform === 'darwin' ? y : y - height;
+    window.setBounds({
+        x: x - width / 2,
+        y: yPosition,
+        height,
+        width
+    });
+
+    if (window.isVisible()) {
+        console.log('Tray clicked: Hiding window');
+        window.hide();
+    } else {
+        console.log('Tray clicked: Showing window');
+        window.show();
+        window.focus();
+    }
+}
+
 function createTray() {
+    if (tray) {
+        console.log('Tray already exists, destroying old tray');
+        tray.destroy();
+    }
+
+    console.log('Creating new tray');
     tray = new Tray(path.join(__dirname, 'icon-idle.png'));
     tray.setToolTip('ClipShare');
 
@@ -87,27 +125,24 @@ function createTray() {
         tray.popUpContextMenu(contextMenu);
     });
 
-    tray.on('click', (event, bounds) => {
-        const { x, y } = bounds;
-        const { height, width } = window.getBounds();
+    tray.on('click', handleTrayClick);
+}
 
-        const yPosition = process.platform === 'darwin' ? y : y - height;
-        window.setBounds({
-            x: x - width / 2,
-            y: yPosition,
-            height,
-            width
-        });
+app.on('ready', () => {
+    console.log('App is ready');
+    createWindow();
+    createTray();
 
-        if (window.isVisible()) {
-            window.hide();
-        } else {
-            setTimeout(() => {
-                window.show();
-                window.focus();
-            }, 100);
-        }
-    });
+    // Periodic cleanup every 6 hours
+    setInterval(cleanupAndRecreate, 6 * 60 * 60 * 1000);
+});
+
+function cleanupAndRecreate() {
+    console.log('Performing periodic cleanup and recreation');
+    if (tray) {
+        tray.destroy();
+    }
+    createTray();
 }
 
 ipcMain.handle('start-recording', (event) => {
