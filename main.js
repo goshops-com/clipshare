@@ -67,7 +67,7 @@ function createWindow() {
     });
 
     // Enable DevTools for debugging
-    window.webContents.openDevTools({ mode: 'detach' });
+    // window.webContents.openDevTools({ mode: 'detach' });
 }
 
 function createTray() {
