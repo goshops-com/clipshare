@@ -9,9 +9,19 @@
     "build": "node build.js"
   },
   "build": {
-    "appId": "com.yourname.clipshare",
+    "appId": "com.gopersonal.clipshare",
     "mac": {
-      "target": "dmg"
+      "target": "dmg",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "Please give us access to your microphone",
+        "NSCameraUsageDescription": "Please give us access to your camera",
+        "com.apple.security.device.audio-input": true,
+        "com.apple.security.device.camera": true
+      }
     },
     "dmg": {
       "contents": [
@@ -31,6 +41,35 @@
         "width": 540,
         "height": 380
       }
+    },
+    "win": {
+      "target": "nsis",
+      "requestedExecutionLevel": "requireAdministrator"
+    },
+    "linux": {
+      "target": "AppImage",
+      "category": "Utility"
+    },
+    "files": [
+      ".env",
+      "**/*",
+      "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}",
+      "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}",
+      "!**/node_modules/*.d.ts",
+      "!**/node_modules/.bin",
+      "!**/*.{iml,o,hprof,orig,pyc,pyo,rbc,swp,csproj,sln,xproj}",
+      "!.editorconfig",
+      "!**/._*",
+      "!**/{.DS_Store,.git,.hg,.svn,CVS,RCS,SCCS,.gitignore,.gitattributes}",
+      "!**/{__pycache__,thumbs.db,.flowconfig,.idea,.vs,.nyc_output}",
+      "!**/{appveyor.yml,.travis.yml,circle.yml}",
+      "!**/{npm-debug.log,yarn.lock,.yarn-integrity,.yarn-metadata.json}"
+    ],
+    "protocols": {
+      "name": "clipshare-protocol",
+      "schemes": [
+        "clipshare"
+      ]
     }
   },
   "keywords": [],
@@ -47,8 +86,5 @@
     "aws-sdk": "^2.1677.0",
     "dotenv": "^16.4.5",
     "ulid": "^2.3.0"
-  },
-  "permissions": [
-    "audioCapture"
-  ]
+  }
 }

@@ -1,8 +1,15 @@
-const { app, BrowserWindow, Tray, Menu, ipcMain, desktopCapturer } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, desktopCapturer, systemPreferences } = require('electron');
 const path = require('path');
 const AutoLaunch = require('auto-launch');
 const { ulid } = require('ulid');
-require('dotenv').config();
+const dotenv = require('dotenv');
+
+const envPath = path.join(__dirname, '.env');
+dotenv.config({ path: envPath });
+
+const microphone = systemPreferences.askForMediaAccess('microphone');
+const camera = systemPreferences.askForMediaAccess('camera');
+
 
 const AWS = require('aws-sdk');
 
@@ -17,7 +24,7 @@ const clipShareAutoLauncher = new AutoLaunch({
 
 const s3 = new AWS.S3({
     accessKeyId: process.env.ACCESS_KEY,
-    secretAccessKey: process.env.ACCESS_SECRET, // Replace 'x' with your actual secret access key
+    secretAccessKey: process.env.ACCESS_SECRET,
     endpoint: process.env.ENDPOINT,
     signatureVersion: 'v4',
     region: process.env.REGION
@@ -33,6 +40,7 @@ clipShareAutoLauncher.isEnabled().then((isEnabled) => {
 });
 
 function createWindow() {
+    
     window = new BrowserWindow({
         width: 300,
         height: 350,
@@ -42,36 +50,44 @@ function createWindow() {
         webPreferences: {
             nodeIntegration: true,
             contextIsolation: false,
-            enableRemoteModule: true  // This is important for accessing desktopCapturer
+            enableRemoteModule: true,
+            webSecurity: false
         }
     });
 
     window.loadFile('index.html');
-    // window.webContents.openDevTools({ mode: 'detach' });  // Enable DevTools
+
+    // Request camera permissions
+    window.webContents.session.setPermissionRequestHandler((webContents, permission, callback) => {
+        if (permission === 'media') {
+            callback(true);
+        } else {
+            callback(false);
+        }
+    });
+
+    // Enable DevTools for debugging
+    window.webContents.openDevTools({ mode: 'detach' });
 }
 
 function createTray() {
     tray = new Tray(path.join(__dirname, 'icon-idle.png'));
     tray.setToolTip('ClipShare');
 
-    // Create a context menu
     const contextMenu = Menu.buildFromTemplate([
         {
             label: 'Quit',
             click: () => {
-                app.quit(); // Quit the application
+                app.quit();
             }
         }
     ]);
 
-    // Set the context menu to the tray icon for right-clicks
     tray.on('right-click', () => {
         tray.popUpContextMenu(contextMenu);
     });
 
-    // Handle left-click to toggle the window visibility
     tray.on('click', (event, bounds) => {
-        // Bounds: contains the x, y of the mouse click, and height, width of the tray icon
         const { x, y } = bounds;
         const { height, width } = window.getBounds();
 
@@ -88,7 +104,7 @@ function createTray() {
         } else {
             setTimeout(() => {
                 window.show();
-                window.focus(); // Bring window to the front
+                window.focus();
             }, 100);
         }
     });
@@ -109,11 +125,6 @@ function setTrayIconRecording(isRecording) {
     tray.setImage(path.join(__dirname, iconPath));
 }
 
-app.whenReady().then(() => {
-    createWindow();
-    createTray();
-});
-
 let cameraWindow = null;
 
 function createCameraWindow() {
@@ -127,12 +138,14 @@ function createCameraWindow() {
         webPreferences: {
             nodeIntegration: true,
             contextIsolation: false,
+            enableRemoteModule: true,
+            webSecurity: false,
+            permissions: ['camera', 'microphone']
         }
     });
 
     cameraWindow.loadFile('camera.html');
 
-    // Position the camera window at the bottom left of the screen
     const { screen } = require('electron');
     const primaryDisplay = screen.getPrimaryDisplay();
     const { width, height } = primaryDisplay.workAreaSize;
@@ -141,21 +154,19 @@ function createCameraWindow() {
 }
 
 ipcMain.handle('toggle-camera', (event, enableCamera) => {
+    console.log('Toggle camera called:', enableCamera);
     if (enableCamera) {
         if (!cameraWindow) {
             createCameraWindow();
+        } else {
+            console.log('Camera window already exists');
+            cameraWindow.show();
         }
     } else {
         if (cameraWindow) {
-            cameraWindow.close();
-            cameraWindow = null;
+            console.log('Hiding camera window');
+            cameraWindow.hide();
         }
-    }
-});
-
-app.on('window-all-closed', () => {
-    if (process.platform !== 'darwin') {
-        app.quit();
     }
 });
 
@@ -172,10 +183,8 @@ ipcMain.handle('get-sources', async (event) => {
 });
 
 ipcMain.on('save-recording', async (event, buffer) => {
-
     const fileName = `${ulid()}.webm`;
     try {
-        // Upload to S3
         const params = {
             Bucket: BUCKET_NAME,
             Key: fileName,
@@ -189,9 +198,59 @@ ipcMain.on('save-recording', async (event, buffer) => {
         const url = `https://clipshare.gopersonal.com/${fileName}`
         require('electron').shell.openExternal(url);
         event.reply('recording-saved', url);
-
     } catch (error) {
         console.error('Failed to upload video:', error);
         event.reply('recording-error', error.message);
+    }
+});
+
+// New IPC handler for checking camera permission
+ipcMain.handle('check-camera-permission', async () => {
+    console.log('Checking camera permission');
+    if (process.platform !== 'darwin') {
+        // On Windows and Linux, we can't check permissions this way
+        console.log('Camera permission check not supported on this platform');
+        return 'unknown';
+    }
+    
+    try {
+        const status = systemPreferences.getMediaAccessStatus('camera');
+        console.log('Camera permission status:', status);
+        return status;
+    } catch (error) {
+        console.error('Error checking camera permission:', error);
+        return 'error';
+    }
+});
+
+
+app.whenReady().then(() => {
+    createWindow();
+    createTray();
+});
+
+app.on('window-all-closed', () => {
+    if (process.platform !== 'darwin') {
+        app.quit();
+    }
+});
+
+app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) {
+        createWindow();
+    }
+});
+
+app.on('before-quit', (event) => {
+    console.log('App is about to quit.');
+    // Optionally, cancel the quit process if needed
+    // event.preventDefault();
+    
+    // Close all windows or perform any other cleanup
+    if (window) {
+        window.close();
+    }
+    if (cameraWindow) {
+        cameraWindow.close();
     }
 });

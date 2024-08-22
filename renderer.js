@@ -3,14 +3,50 @@ const { ipcRenderer } = require('electron');
 document.addEventListener('DOMContentLoaded', () => {
     console.log('DOM fully loaded');
 
+    async function checkAndRequestCameraPermission() {
+        try {
+            const status = await ipcRenderer.invoke('check-camera-permission');
+            console.log('Camera permission status:', status);
+    
+            if (status === 'unknown' || status !== 'granted') {
+                console.log('Requesting camera permission...');
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                stream.getTracks().forEach(track => track.stop());
+                console.log('Camera permission granted');
+                return true;
+            } else if (status === 'granted') {
+                return true;
+            } else {
+                console.log('Camera permission not granted');
+                return false;
+            }
+        } catch (error) {
+            console.error('Error requesting camera permission:', error);
+            return false;
+        }
+    }
+
+    // Call this function when your app starts
+    // checkAndRequestCameraPermission();
+
     const startBtn = document.getElementById('startBtn');
     const stopBtn = document.getElementById('stopBtn');
     const audioCheckbox = document.getElementById('audioCheckbox');
     const audioDeviceSelect = document.getElementById('audioDeviceSelect');
     const cameraCheckbox = document.getElementById('cameraCheckbox');
 
-    cameraCheckbox.addEventListener('change', () => {
-        ipcRenderer.invoke('toggle-camera', cameraCheckbox.checked);
+    cameraCheckbox.addEventListener('change', async () => {
+        if (cameraCheckbox.checked) {
+            const permissionGranted = await checkAndRequestCameraPermission();
+            if (permissionGranted) {
+                ipcRenderer.invoke('toggle-camera', true);
+            } else {
+                cameraCheckbox.checked = false;
+                alert('Camera permission is required to use this feature.');
+            }
+        } else {
+            ipcRenderer.invoke('toggle-camera', false);
+        }
     });
 
     console.log('Start button found:', !!startBtn);

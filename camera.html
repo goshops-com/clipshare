@@ -51,19 +51,50 @@
         <video id="cameraFeed" autoplay></video>
     </div>
     <script>
+        console.log('Camera HTML loaded');
+
         async function startCamera() {
             const videoElement = document.getElementById('cameraFeed');
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                console.log('Checking camera permissions...');
+                const permissionStatus = await navigator.permissions.query({ name: 'camera' });
+                console.log('Camera permission status:', permissionStatus.state);
+
+                console.log('Requesting camera access...');
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    } 
+                });
+                console.log('Camera access granted:', stream);
                 videoElement.srcObject = stream;
+                videoElement.onloadedmetadata = () => {
+                    console.log('Video metadata loaded');
+                    videoElement.play().catch(e => console.error('Error playing video:', e));
+                };
             } catch (error) {
                 console.error('Error accessing camera:', error);
-                alert('Failed to access the camera: ' + error.message);
+                let errorMessage = `Error: ${error.message}`;
+                if (error.name === 'NotAllowedError') {
+                    errorMessage += ' (Camera permission denied)';
+                } else if (error.name === 'NotFoundError') {
+                    errorMessage += ' (No camera found)';
+                } else if (error.name === 'NotReadableError') {
+                    errorMessage += ' (Camera may be in use by another application)';
+                }
+                document.body.innerHTML += `<p style="color: red;">${errorMessage}</p>`;
             }
         }
 
-        // Start the camera when the page loads
-        startCamera();
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('DOM fully loaded, starting camera');
+            startCamera();
+        });
+
+        window.onerror = function(message, source, lineno, colno, error) {
+            console.error('Caught unhandled error:', message, error);
+        };
     </script>
 </body>
 
