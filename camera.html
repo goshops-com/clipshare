@@ -51,7 +51,10 @@
         <video id="cameraFeed" autoplay></video>
     </div>
     <script>
+        const { ipcRenderer } = require('electron');
         console.log('Camera HTML loaded');
+
+        let cameraStream = null;
 
         async function startCamera() {
             const videoElement = document.getElementById('cameraFeed');
@@ -61,18 +64,21 @@
                 console.log('Camera permission status:', permissionStatus.state);
 
                 console.log('Requesting camera access...');
-                const stream = await navigator.mediaDevices.getUserMedia({ 
+                cameraStream = await navigator.mediaDevices.getUserMedia({ 
                     video: { 
                         width: { ideal: 1280 },
                         height: { ideal: 720 }
                     } 
                 });
-                console.log('Camera access granted:', stream);
-                videoElement.srcObject = stream;
+                console.log('Camera access granted:', cameraStream);
+                videoElement.srcObject = cameraStream;
                 videoElement.onloadedmetadata = () => {
                     console.log('Video metadata loaded');
                     videoElement.play().catch(e => console.error('Error playing video:', e));
                 };
+
+                // Send the stream ID to the main process
+                await ipcRenderer.invoke('set-camera-stream', cameraStream.id);
             } catch (error) {
                 console.error('Error accessing camera:', error);
                 let errorMessage = `Error: ${error.message}`;
@@ -90,6 +96,12 @@
         document.addEventListener('DOMContentLoaded', () => {
             console.log('DOM fully loaded, starting camera');
             startCamera();
+        });
+
+        window.addEventListener('beforeunload', () => {
+            if (cameraStream) {
+                cameraStream.getTracks().forEach(track => track.stop());
+            }
         });
 
         window.onerror = function(message, source, lineno, colno, error) {

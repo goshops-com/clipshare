@@ -46,8 +46,18 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } else {
             ipcRenderer.invoke('toggle-camera', false);
+            await releaseCameraStream();
         }
     });
+
+    async function releaseCameraStream() {
+        const streamId = await ipcRenderer.invoke('get-camera-stream');
+        if (streamId) {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { mandatory: { chromeMediaSourceId: streamId } } });
+            stream.getTracks().forEach(track => track.stop());
+            await ipcRenderer.invoke('release-camera-stream');
+        }
+    }
 
     console.log('Start button found:', !!startBtn);
     console.log('Stop button found:', !!stopBtn);
@@ -208,6 +218,7 @@ document.addEventListener('DOMContentLoaded', () => {
     ipcRenderer.on('recording-error', (event, error) => {
         console.error('Error saving or uploading recording:', error);
         alert(`Error saving or uploading recording: ${error}`);
+        hideLoading();
     });
 
     // Initialize audio devices

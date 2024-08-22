@@ -126,6 +126,8 @@ function setTrayIconRecording(isRecording) {
 }
 
 let cameraWindow = null;
+let cameraStream = null;
+
 
 function createCameraWindow() {
     cameraWindow = new BrowserWindow({
@@ -151,9 +153,12 @@ function createCameraWindow() {
     const { width, height } = primaryDisplay.workAreaSize;
 
     cameraWindow.setPosition(20, height - 170);
+    cameraWindow.on('closed', () => {
+        cameraWindow = null;
+    });
 }
 
-ipcMain.handle('toggle-camera', (event, enableCamera) => {
+ipcMain.handle('toggle-camera', async (event, enableCamera) => {
     console.log('Toggle camera called:', enableCamera);
     if (enableCamera) {
         if (!cameraWindow) {
@@ -164,9 +169,27 @@ ipcMain.handle('toggle-camera', (event, enableCamera) => {
         }
     } else {
         if (cameraWindow) {
-            console.log('Hiding camera window');
-            cameraWindow.hide();
+            console.log('Closing camera window');
+            cameraWindow.close();
+            cameraWindow = null;
         }
+    }
+});
+
+ipcMain.handle('get-camera-stream', async () => {
+    if (cameraStream) {
+        return cameraStream.id;
+    }
+    return null;
+});
+
+ipcMain.handle('set-camera-stream', (event, streamId) => {
+    cameraStream = { id: streamId };
+});
+
+ipcMain.handle('release-camera-stream', () => {
+    if (cameraStream) {
+        cameraStream = null;
     }
 });
 
