@@ -134,7 +134,7 @@ app.on('ready', () => {
     createTray();
 
     // Periodic cleanup every 6 hours
-    setInterval(cleanupAndRecreate, 6 * 60 * 60 * 1000);
+    // setInterval(cleanupAndRecreate, 6 * 60 * 60 * 1000);
 });
 
 function cleanupAndRecreate() {
