@@ -6,9 +6,7 @@
 
 ## 🎥 Video Demo
 
-Check out ClipShare in action:
-
-<video src="https://clipshare.gopersonal.com/01J64TT8C7BJD6G37SB7AP203B.webm" controls></video>
+Check out [ClipShare in action](https://clipshare.gopersonal.com/01J64TT8C7BJD6G37SB7AP203B.webm).
 
 ## 🚀 Features
 
