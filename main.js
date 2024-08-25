@@ -251,9 +251,16 @@ ipcMain.on('save-recording', async (event, buffer) => {
             ContentType: 'video/webm'
         };
 
-        await s3.upload(params).promise();
 
-        const url = `https://clipshare.gopersonal.com/${fileName}`
+        const result = await s3.upload(params).promise();
+        let url;
+        if (process.env.URL_PREFIX) {
+            const prefix = process.env.URL_PREFIX.endsWith('/') ? process.env.URL_PREFIX : `${process.env.URL_PREFIX}/`;
+            url = `${prefix}${fileName}`;
+        } else {
+            url = result.Location;
+        }
+        
         require('electron').shell.openExternal(url);
         event.reply('recording-saved', url);
     } catch (error) {

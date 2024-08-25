@@ -4,6 +4,12 @@
 
 ![ClipShare Logo](https://github.com/goshops-com/clipshare/blob/main/icon.png?raw=true)
 
+## 🎥 Video Demo
+
+Check out ClipShare in action:
+
+<video src="https://clipshare.gopersonal.com/01J64TT8C7BJD6G37SB7AP203B.webm" controls></video>
+
 ## 🚀 Features
 
 - **📹 Screen Recording**: Capture your entire screen or specific windows with crystal-clear audio.
@@ -41,7 +47,10 @@ Before you begin, ensure you have the following installed:
    ENDPOINT=https://s3.yourservice.com
    REGION=us-east-1
    BUCKET_NAME=your-bucket-name
+   URL_PREFIX=https://your-custom-domain.com/
    ```
+
+   Note: `URL_PREFIX` is optional. If provided, it will be used as a prefix for the uploaded file URLs.
 
 ### Building the Application
 
@@ -71,14 +80,42 @@ For production, run the packaged application from the `dist/` directory.
 4. **Stop**: Click "Stop Recording" when finished.
 5. **Share**: After automatic upload, use the provided URL to share your recording.
 
-## ⚙️ Configuration
+## 🏠 Self-Hosted Setup
 
-Edit the `config.json` file to customize:
+If you don't intend to use an external S3 service, you can set up a MinIO docker container for local storage. Here's an example `docker-compose.yml` file:
 
-- Default recording settings
-- Storage preferences
-- UI themes
-- Keyboard shortcuts
+```yaml
+version: '3'
+services:
+  minio:
+    image: minio/minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - ./data:/data
+    environment:
+      MINIO_ROOT_USER: your_access_key
+      MINIO_ROOT_PASSWORD: your_secret_key
+    command: server /data --console-address ":9001"
+```
+
+To use this setup:
+
+1. Save the above content in a `docker-compose.yml` file.
+2. Run `docker-compose up -d` to start the MinIO server.
+3. Access the MinIO console at `http://localhost:9001` and create a bucket.
+4. Update your `.env` file with the following:
+
+   ```plaintext
+   ACCESS_KEY=your_access_key
+   ACCESS_SECRET=your_secret_key
+   ENDPOINT=http://localhost:9000
+   REGION=us-east-1
+   BUCKET_NAME=your-bucket-name
+   ```
+
+This configuration allows you to use ClipShare with a self-hosted S3-compatible storage solution.
 
 ## 🛠️ Troubleshooting
 
