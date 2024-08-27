@@ -115,7 +115,11 @@
       const cancelBtn = document.getElementById('cancelBtn');
       const recordingControls = document.getElementById('recordingControls');
 
+      // Load saved states
+      audioCheckbox.checked = localStorage.getItem('audioEnabled') === 'true';
+
       audioCheckbox.addEventListener('change', () => {
+        localStorage.setItem('audioEnabled', audioCheckbox.checked);
         if (audioCheckbox.checked) {
           audioDeviceSelect.classList.remove('opacity-0', 'h-0');
           audioDeviceSelect.classList.add('opacity-100', 'h-10');
