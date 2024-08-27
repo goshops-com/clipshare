@@ -38,7 +38,10 @@ const s3 = new AWS.S3({
     region: process.env.REGION
 });
 
-const BUCKET_NAME = 'clipshare';
+const BUCKET_NAME = process.env.BUCKET_NAME;
+const ACL = process.env.ACL || 'public-read';
+const PRESIGN_URL = (String(process.env.PRESIGN_URL).toLowerCase() === 'true');
+const PRESIGN_URL_EXPIRY = parseInt(process.env.PRESIGN_URL_EXPIRY, 10) || 86400;
 
 // Enable AutoLaunch
 clipShareAutoLauncher.isEnabled().then((isEnabled) => {
@@ -48,7 +51,7 @@ clipShareAutoLauncher.isEnabled().then((isEnabled) => {
 });
 
 function createWindow() {
-    
+
     window = new BrowserWindow({
         width: 300,
         height: 350,
@@ -247,20 +250,25 @@ ipcMain.on('save-recording', async (event, buffer) => {
             Bucket: BUCKET_NAME,
             Key: fileName,
             Body: buffer,
-            ACL: 'public-read',
+            ACL: ACL,
             ContentType: 'video/webm'
         };
-
 
         const result = await s3.upload(params).promise();
         let url;
         if (process.env.URL_PREFIX) {
             const prefix = process.env.URL_PREFIX.endsWith('/') ? process.env.URL_PREFIX : `${process.env.URL_PREFIX}/`;
             url = `${prefix}${fileName}`;
+        } else if (PRESIGN_URL) {
+            url = s3.getSignedUrl('getObject', {
+                Bucket: BUCKET_NAME,
+                Key: fileName,
+                Expires: PRESIGN_URL_EXPIRY
+            });
         } else {
             url = result.Location;
         }
-        
+
         require('electron').shell.openExternal(url);
         event.reply('recording-saved', url);
     } catch (error) {
@@ -277,7 +285,7 @@ ipcMain.handle('check-camera-permission', async () => {
         console.log('Camera permission check not supported on this platform');
         return 'unknown';
     }
-    
+
     try {
         const status = systemPreferences.getMediaAccessStatus('camera');
         console.log('Camera permission status:', status);
@@ -310,7 +318,7 @@ app.on('before-quit', (event) => {
     console.log('App is about to quit.');
     // Optionally, cancel the quit process if needed
     // event.preventDefault();
-    
+
     // Close all windows or perform any other cleanup
     if (window) {
         window.close();
