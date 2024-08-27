@@ -1,113 +1,116 @@
 <!DOCTYPE html>
 <html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Camera Feed</title>
     <style>
-        body,
-        html {
-            margin: 0;
-            padding: 0;
-            height: 100%;
-            overflow: hidden;
-            background: transparent;
-        }
+      body,
+      html {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        overflow: hidden;
+        background: transparent;
+      }
 
-        #container {
-            position: relative;
-            width: 100%;
-            height: 100%;
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.08);
-        }
+      #container {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.08);
+      }
 
-        #dragRegion {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 24px;
-            background: rgba(0, 0, 0, 0.5);
-            -webkit-app-region: drag;
-            border-top-left-radius: 12px;
-            border-top-right-radius: 12px;
-        }
+      #dragRegion {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 24px;
+        background: rgba(0, 0, 0, 0.5);
+        -webkit-app-region: drag;
+        border-top-left-radius: 12px;
+        border-top-right-radius: 12px;
+      }
 
-        video {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            background: black;
-        }
+      video {
+        transform: scaleX(-1);
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        background: black;
+      }
     </style>
-</head>
+  </head>
 
-<body>
+  <body>
     <div id="container">
-        <div id="dragRegion"></div>
-        <video id="cameraFeed" autoplay></video>
+      <div id="dragRegion"></div>
+      <video id="cameraFeed" autoplay></video>
     </div>
     <script>
-        const { ipcRenderer } = require('electron');
-        console.log('Camera HTML loaded');
+      const { ipcRenderer } = require('electron');
+      console.log('Camera HTML loaded');
 
-        let cameraStream = null;
+      let cameraStream = null;
 
-        async function startCamera() {
-            const videoElement = document.getElementById('cameraFeed');
-            try {
-                console.log('Checking camera permissions...');
-                const permissionStatus = await navigator.permissions.query({ name: 'camera' });
-                console.log('Camera permission status:', permissionStatus.state);
+      async function startCamera() {
+        const videoElement = document.getElementById('cameraFeed');
+        try {
+          console.log('Checking camera permissions...');
+          const permissionStatus = await navigator.permissions.query({
+            name: 'camera',
+          });
+          console.log('Camera permission status:', permissionStatus.state);
 
-                console.log('Requesting camera access...');
-                cameraStream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { 
-                        width: { ideal: 1280 },
-                        height: { ideal: 720 }
-                    } 
-                });
-                console.log('Camera access granted:', cameraStream);
-                videoElement.srcObject = cameraStream;
-                videoElement.onloadedmetadata = () => {
-                    console.log('Video metadata loaded');
-                    videoElement.play().catch(e => console.error('Error playing video:', e));
-                };
+          console.log('Requesting camera access...');
+          cameraStream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              width: { ideal: 1280 },
+              height: { ideal: 720 },
+            },
+          });
+          console.log('Camera access granted:', cameraStream);
+          videoElement.srcObject = cameraStream;
+          videoElement.onloadedmetadata = () => {
+            console.log('Video metadata loaded');
+            videoElement
+              .play()
+              .catch((e) => console.error('Error playing video:', e));
+          };
 
-                // Send the stream ID to the main process
-                await ipcRenderer.invoke('set-camera-stream', cameraStream.id);
-            } catch (error) {
-                console.error('Error accessing camera:', error);
-                let errorMessage = `Error: ${error.message}`;
-                if (error.name === 'NotAllowedError') {
-                    errorMessage += ' (Camera permission denied)';
-                } else if (error.name === 'NotFoundError') {
-                    errorMessage += ' (No camera found)';
-                } else if (error.name === 'NotReadableError') {
-                    errorMessage += ' (Camera may be in use by another application)';
-                }
-                document.body.innerHTML += `<p style="color: red;">${errorMessage}</p>`;
-            }
+          // Send the stream ID to the main process
+          await ipcRenderer.invoke('set-camera-stream', cameraStream.id);
+        } catch (error) {
+          console.error('Error accessing camera:', error);
+          let errorMessage = `Error: ${error.message}`;
+          if (error.name === 'NotAllowedError') {
+            errorMessage += ' (Camera permission denied)';
+          } else if (error.name === 'NotFoundError') {
+            errorMessage += ' (No camera found)';
+          } else if (error.name === 'NotReadableError') {
+            errorMessage += ' (Camera may be in use by another application)';
+          }
+          document.body.innerHTML += `<p style="color: red;">${errorMessage}</p>`;
         }
+      }
 
-        document.addEventListener('DOMContentLoaded', () => {
-            console.log('DOM fully loaded, starting camera');
-            startCamera();
-        });
+      document.addEventListener('DOMContentLoaded', () => {
+        console.log('DOM fully loaded, starting camera');
+        startCamera();
+      });
 
-        window.addEventListener('beforeunload', () => {
-            if (cameraStream) {
-                cameraStream.getTracks().forEach(track => track.stop());
-            }
-        });
+      window.addEventListener('beforeunload', () => {
+        if (cameraStream) {
+          cameraStream.getTracks().forEach((track) => track.stop());
+        }
+      });
 
-        window.onerror = function(message, source, lineno, colno, error) {
-            console.error('Caught unhandled error:', message, error);
-        };
+      window.onerror = function (message, source, lineno, colno, error) {
+        console.error('Caught unhandled error:', message, error);
+      };
     </script>
-</body>
-
+  </body>
 </html>
