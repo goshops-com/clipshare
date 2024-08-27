@@ -63,8 +63,8 @@ clipShareAutoLauncher
 
 function createWindow() {
   window = new BrowserWindow({
-    width: 300,
-    height: 450,
+    width: 325,
+    height: 330,
     show: false,
     frame: false,
     resizable: false,

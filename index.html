@@ -5,23 +5,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Clipshare</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
     <style>
       @keyframes spin {
         0% {
           transform: rotate(0deg);
         }
-
         100% {
           transform: rotate(360deg);
         }
       }
-
       .animate-spin {
         animation: spin 1s linear infinite;
       }
     </style>
   </head>
-
   <body class="bg-gray-100 h-screen flex items-center justify-center">
     <div class="bg-white rounded-lg shadow-lg p-8 w-80">
       <div class="text-center mb-6">
@@ -36,7 +34,10 @@
             id="audioCheckbox"
             class="form-checkbox h-5 w-5 text-indigo-600 transition duration-150 ease-in-out"
           />
-          <span class="text-gray-700 font-medium">Record Audio</span>
+          <span class="text-gray-700 font-medium flex items-center space-x-2">
+            <i data-lucide="mic" class="w-5 h-5"></i>
+            <span>Audio</span>
+          </span>
         </label>
 
         <select
@@ -52,33 +53,39 @@
             id="cameraCheckbox"
             class="form-checkbox h-5 w-5 text-indigo-600 transition duration-150 ease-in-out"
           />
-          <span class="text-gray-700 font-medium">Enable Camera</span>
+          <span class="text-gray-700 font-medium flex items-center space-x-2">
+            <i data-lucide="video" class="w-5 h-5"></i>
+            <span>Camera</span>
+          </span>
         </label>
       </div>
 
-      <div class="mt-8 space-y-4">
+      <div id="controlButtons" class="mt-8 space-y-4">
         <button
           id="startBtn"
-          class="w-full bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50 transition duration-150 ease-in-out"
+          class="w-full bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50 transition duration-150 ease-in-out flex items-center justify-center space-x-2"
         >
-          Start Recording
+          <i data-lucide="play" class="w-5 h-5"></i>
+          <span>Start Recording</span>
         </button>
 
-        <button
-          id="stopBtn"
-          disabled
-          class="w-full bg-red-500 text-white py-2 px-4 rounded-lg hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50 transition duration-150 ease-in-out opacity-50 cursor-not-allowed"
-        >
-          Stop Recording
-        </button>
+        <div id="recordingControls" class="hidden space-x-2">
+          <button
+            id="stopBtn"
+            class="flex-1 bg-red-500 text-white py-2 px-4 rounded-lg hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50 transition duration-150 ease-in-out flex items-center justify-center space-x-2"
+          >
+            <i data-lucide="circle-stop" class="w-5 h-5"></i>
+            <span>Stop</span>
+          </button>
 
-        <button
-          id="cancelBtn"
-          disabled
-          class="w-full bg-gray-500 text-white py-2 px-4 rounded-lg hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50 transition duration-150 ease-in-out opacity-50 cursor-not-allowed"
-        >
-          Cancel Recording
-        </button>
+          <button
+            id="cancelBtn"
+            class="flex-1 bg-gray-500 text-white py-2 px-4 rounded-lg hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50 transition duration-150 ease-in-out flex items-center justify-center space-x-2"
+          >
+            <i data-lucide="x" class="w-5 h-5"></i>
+            <span>Cancel</span>
+          </button>
+        </div>
       </div>
     </div>
 
@@ -87,21 +94,26 @@
       class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden items-center justify-center"
     >
       <div class="bg-white p-5 rounded-lg flex items-center space-x-4">
-        <div
-          class="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"
-        ></div>
+        <i
+          data-lucide="loader-2"
+          class="w-6 h-6 text-indigo-600 animate-spin"
+        ></i>
         <div class="text-indigo-600 font-semibold">Uploading...</div>
       </div>
     </div>
 
     <script src="renderer.js"></script>
     <script>
+      // Initialize Lucide icons
+      lucide.createIcons();
+
       const audioCheckbox = document.getElementById('audioCheckbox');
       const audioDeviceSelect = document.getElementById('audioDeviceSelect');
       const cameraCheckbox = document.getElementById('cameraCheckbox');
       const startBtn = document.getElementById('startBtn');
       const stopBtn = document.getElementById('stopBtn');
       const cancelBtn = document.getElementById('cancelBtn');
+      const recordingControls = document.getElementById('recordingControls');
 
       audioCheckbox.addEventListener('change', () => {
         if (audioCheckbox.checked) {
@@ -114,31 +126,15 @@
       });
 
       startBtn.addEventListener('click', () => {
-        startBtn.disabled = true;
-        startBtn.classList.add('opacity-50', 'cursor-not-allowed');
-        startBtn.classList.remove('hover:bg-indigo-700');
-
-        stopBtn.disabled = false;
-        stopBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-        stopBtn.classList.add('hover:bg-red-600');
-
-        cancelBtn.disabled = false;
-        cancelBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-        cancelBtn.classList.add('hover:bg-gray-600');
+        startBtn.classList.add('hidden');
+        recordingControls.classList.remove('hidden');
+        recordingControls.classList.add('flex');
       });
 
       function handleStopOrCancel() {
-        stopBtn.disabled = true;
-        stopBtn.classList.add('opacity-50', 'cursor-not-allowed');
-        stopBtn.classList.remove('hover:bg-red-600');
-
-        cancelBtn.disabled = true;
-        cancelBtn.classList.add('opacity-50', 'cursor-not-allowed');
-        cancelBtn.classList.remove('hover:bg-gray-600');
-
-        startBtn.disabled = false;
-        startBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-        startBtn.classList.add('hover:bg-indigo-700');
+        startBtn.classList.remove('hidden');
+        recordingControls.classList.add('hidden');
+        recordingControls.classList.remove('flex');
 
         // Uncheck the camera checkbox and trigger change event
         if (cameraCheckbox.checked) {
