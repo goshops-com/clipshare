@@ -46,9 +46,17 @@ Before you begin, ensure you have the following installed:
    REGION=us-east-1
    BUCKET_NAME=your-bucket-name
    URL_PREFIX=https://your-custom-domain.com/
+   ACL=public-read
+   PRESIGN_URL=false
+   PRESIGN_URL_EXPIRY=3600
    ```
 
-   Note: `URL_PREFIX` is optional. If provided, it will be used as a prefix for the uploaded file URLs.
+   Notes:
+
+   * `URL_PREFIX` is optional. If provided, it will be used as a prefix for the uploaded file URLs.
+   * `ACL` is optional; default is `public-read`. Other values, such as `private` or `authenticated-read`, may be configured, depending on your object storage provider. This value will be used as the canned ACL when saving recordings.
+   * `PRESIGN_URL` is optional; default is `false`. If set to `true`, recording URL will be signed, allowing use of a private bucket.
+   * `PRESIGN_URL_EXPIRY` is optional; default is 86400 (1 day). This value is the expiry for the signed URL, in seconds.
 
 ### Building the Application
 
