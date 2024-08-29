@@ -270,17 +270,17 @@ ipcMain.on('save-recording', async (event, buffer) => {
 
     const result = await s3.upload(params).promise();
     let url;
-    if (process.env.URL_PREFIX) {
-      const prefix = process.env.URL_PREFIX.endsWith('/')
-        ? process.env.URL_PREFIX
-        : `${process.env.URL_PREFIX}/`;
-      url = `${prefix}${fileName}`;
-    } else if (PRESIGN_URL) {
+    if (PRESIGN_URL) {
       url = s3.getSignedUrl('getObject', {
         Bucket: BUCKET_NAME,
         Key: fileName,
         Expires: PRESIGN_URL_EXPIRY,
       });
+    } else if (process.env.URL_PREFIX) {
+      const prefix = process.env.URL_PREFIX.endsWith('/')
+        ? process.env.URL_PREFIX
+        : `${process.env.URL_PREFIX}/`;
+      url = `${prefix}${fileName}`;
     } else {
       url = result.Location;
     }
