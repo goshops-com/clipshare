@@ -117,6 +117,13 @@
 
       // Load saved states
       audioCheckbox.checked = localStorage.getItem('audioEnabled') === 'true';
+      if (audioCheckbox.checked) {
+        audioDeviceSelect.classList.remove('opacity-0', 'h-0');
+        audioDeviceSelect.classList.add('opacity-100', 'h-10');
+      } else {
+        audioDeviceSelect.classList.add('opacity-0', 'h-0');
+        audioDeviceSelect.classList.remove('opacity-100', 'h-10');
+      }
 
       audioCheckbox.addEventListener('change', () => {
         localStorage.setItem('audioEnabled', audioCheckbox.checked);
