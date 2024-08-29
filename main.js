@@ -15,8 +15,11 @@ const dotenv = require('dotenv');
 const envPath = path.join(__dirname, '.env');
 dotenv.config({ path: envPath });
 
-const microphone = systemPreferences.askForMediaAccess('microphone');
-const camera = systemPreferences.askForMediaAccess('camera');
+// Only ask for media access on macOS
+if (process.platform === 'darwin') {
+  systemPreferences.askForMediaAccess('microphone');
+  systemPreferences.askForMediaAccess('camera');
+}
 
 const AWS = require('aws-sdk');
 
