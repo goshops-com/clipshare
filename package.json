@@ -6,7 +6,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "electron .",
-    "build": "node build.js"
+    "build": "node build.js",
+    "release": "electron-builder"
   },
   "build": {
     "appId": "com.gopersonal.clipshare",
@@ -48,7 +49,8 @@
     },
     "linux": {
       "target": "AppImage",
-      "category": "Utility"
+      "category": "Utility",
+      "publish": ["github"]
     },
     "files": [
       ".env",
