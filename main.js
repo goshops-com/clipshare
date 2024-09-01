@@ -25,6 +25,14 @@ const AWS = require('aws-sdk');
 
 let tray = null;
 let window = null;
+// Add this function to check if we're running on GNOME
+function isGNOME() {
+  return (
+    process.platform === 'linux' &&
+    process.env.XDG_CURRENT_DESKTOP &&
+    process.env.XDG_CURRENT_DESKTOP.includes('GNOME')
+  );
+}
 
 // Ensure single instance
 const gotTheLock = app.requestSingleInstanceLock();
@@ -127,7 +135,20 @@ function createTray() {
   }
 
   console.log('Creating new tray');
-  tray = new Tray(path.join(__dirname, 'icon-idle.png'));
+  const iconPath = path.join(__dirname, 'icon-idle.png');
+
+  if (isGNOME()) {
+    // For GNOME, use a different approach
+    const { StatusNotifier } = require('electron-status-notifier');
+    tray = new StatusNotifier({
+      icon: iconPath,
+      tooltip: 'ClipShare',
+    });
+  } else {
+    // For other environments, use the standard Tray
+    tray = new Tray(iconPath);
+  }
+
   tray.setToolTip('ClipShare');
 
   const contextMenu = Menu.buildFromTemplate([
@@ -139,11 +160,16 @@ function createTray() {
     },
   ]);
 
-  tray.on('right-click', () => {
-    tray.popUpContextMenu(contextMenu);
-  });
+  if (!isGNOME()) {
+    tray.on('right-click', () => {
+      tray.popUpContextMenu(contextMenu);
+    });
 
-  tray.on('click', handleTrayClick);
+    tray.on('click', handleTrayClick);
+  } else {
+    tray.on('status-notifier-click', handleTrayClick);
+    tray.setContextMenu(contextMenu);
+  }
 }
 
 app.on('ready', () => {
@@ -175,7 +201,13 @@ ipcMain.handle('stop-recording', (event) => {
 
 function setTrayIconRecording(isRecording) {
   const iconPath = isRecording ? 'icon-recording.png' : 'icon-idle.png';
-  tray.setImage(path.join(__dirname, iconPath));
+  const fullIconPath = path.join(__dirname, iconPath);
+
+  if (isGNOME()) {
+    tray.setIcon(fullIconPath);
+  } else {
+    tray.setImage(fullIconPath);
+  }
 }
 
 let cameraWindow = null;
