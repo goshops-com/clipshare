@@ -128,6 +128,8 @@ function handleTrayClick(event, bounds) {
   }
 }
 
+const AppIndicator = require('electron-appindicator');
+
 function createTray() {
   if (tray) {
     console.log('Tray already exists, destroying old tray');
@@ -139,10 +141,16 @@ function createTray() {
 
   if (isGNOME()) {
     // For GNOME, use a different approach
-    const { StatusNotifier } = require('electron-status-notifier');
-    tray = new StatusNotifier({
+    tray = new AppIndicator({
       icon: iconPath,
-      tooltip: 'ClipShare',
+      menu: Menu.buildFromTemplate([
+        {
+          label: 'Quit',
+          click: () => {
+            app.quit();
+          },
+        },
+      ]),
     });
   } else {
     // For other environments, use the standard Tray
