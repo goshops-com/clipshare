@@ -35,6 +35,27 @@ function isGNOME() {
   );
 }
 
+// Function to check for tray support
+function hasTraySupport() {
+  if (!isGNOME()) {
+    return true; // Non-GNOME environments are assumed to support tray
+  }
+
+  // Check for common GNOME extensions that provide tray support
+  const knownTrayExtensions = [
+    'appindicatorsupport@rgcjonas.gmail.com',
+    'ubuntu-appindicators@ubuntu.com',
+    'TopIcons@phocean.net',
+    'TopIcons-Plus@phocean.net',
+  ];
+
+  // Read the list of enabled GNOME extensions
+  const enabledExtensions = process.env.GNOME_SHELL_EXTENSION_IDS || '';
+
+  // Check if any known tray extension is enabled
+  return knownTrayExtensions.some((ext) => enabledExtensions.includes(ext));
+}
+
 // Ensure single instance
 const gotTheLock = app.requestSingleInstanceLock();
 
@@ -74,11 +95,13 @@ clipShareAutoLauncher
   });
 
 function createWindow() {
+  const hasCustomTitleBar = isGNOME() && !hasTraySupport();
+
   window = new BrowserWindow({
     width: 325,
-    height: 330,
-    show: isGNOME(), // Show the window immediately on GNOME
-    frame: false,
+    height: hasCustomTitleBar ? 360 : 330, // Slightly taller to accommodate title bar
+    show: hasCustomTitleBar, // Show the window immediately if no tray
+    frame: !hasCustomTitleBar, // Use default frame if we're not adding our own controls
     resizable: false,
     webPreferences: {
       nodeIntegration: true,
@@ -101,12 +124,37 @@ function createWindow() {
     }
   );
 
-  // For GNOME, set the window position to top-right corner
-  if (isGNOME()) {
+  // For GNOME without tray, set the window position to top-right corner
+  if (hasCustomTitleBar) {
     const { screen } = require('electron');
     const primaryDisplay = screen.getPrimaryDisplay();
     const { width, height } = primaryDisplay.workAreaSize;
     window.setPosition(width - 325, 0);
+
+    // Add custom title bar
+    window.webContents.on('did-finish-load', () => {
+      window.webContents.executeJavaScript(`
+        const titleBar = document.createElement('div');
+        titleBar.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; height: 30px; background-color: #f0f0f0; display: flex; justify-content: flex-end; align-items: center; -webkit-app-region: drag;';
+        
+        const minimizeBtn = document.createElement('button');
+        minimizeBtn.innerText = '—';
+        minimizeBtn.style.cssText = 'width: 30px; height: 30px; border: none; background: none; cursor: pointer; -webkit-app-region: no-drag;';
+        minimizeBtn.onclick = () => window.minimize();
+        
+        const closeBtn = document.createElement('button');
+        closeBtn.innerText = '✕';
+        closeBtn.style.cssText = 'width: 30px; height: 30px; border: none; background: none; cursor: pointer; -webkit-app-region: no-drag;';
+        closeBtn.onclick = () => window.hide();
+        
+        titleBar.appendChild(minimizeBtn);
+        titleBar.appendChild(closeBtn);
+        document.body.insertBefore(titleBar, document.body.firstChild);
+        
+        // Adjust main content position
+        document.body.style.marginTop = '30px';
+      `);
+    });
   }
 
   // Enable DevTools for debugging
@@ -116,8 +164,8 @@ function createWindow() {
 function handleTrayClick(event, bounds) {
   if (!window) return;
 
-  if (isGNOME()) {
-    // For GNOME, we'll just show/hide the window
+  if (isGNOME() && !hasTraySupport()) {
+    // For GNOME without tray, we'll just show/hide the window
     if (window.isVisible()) {
       window.hide();
     } else {
@@ -147,8 +195,8 @@ function handleTrayClick(event, bounds) {
 }
 
 function createTray() {
-  if (isGNOME()) {
-    console.log('GNOME detected, skipping tray creation');
+  if (isGNOME() && !hasTraySupport()) {
+    console.log('GNOME detected without tray support, skipping tray creation');
     return;
   }
 
@@ -192,8 +240,16 @@ function createTray() {
 app.on('ready', () => {
   console.log('App is ready');
   createWindow();
-  if (!isGNOME()) {
+
+  const gnomeWithoutTray = isGNOME() && !hasTraySupport();
+
+  if (!gnomeWithoutTray) {
     createTray();
+  }
+
+  if (gnomeWithoutTray) {
+    // For GNOME without tray, we show the window immediately
+    window.show();
   }
 
   // Periodic cleanup every 6 hours
@@ -202,7 +258,7 @@ app.on('ready', () => {
 
 function cleanupAndRecreate() {
   console.log('Performing periodic cleanup and recreation');
-  if (tray && !isGNOME()) {
+  if (tray && (!isGNOME() || hasTraySupport())) {
     tray.destroy();
     createTray();
   }
@@ -219,7 +275,7 @@ ipcMain.handle('stop-recording', (event) => {
 });
 
 function setTrayIconRecording(isRecording) {
-  if (isGNOME()) return; // Skip tray icon updates on GNOME
+  if (isGNOME() && !hasTraySupport()) return; // Skip tray icon updates on GNOME without tray
 
   const iconPath = isRecording ? 'icon-recording.png' : 'icon-idle.png';
   const fullIconPath = path.join(__dirname, iconPath);
@@ -361,7 +417,7 @@ ipcMain.handle('check-camera-permission', async () => {
 
 app.whenReady().then(() => {
   createWindow();
-  if (!isGNOME()) {
+  if (!isGNOME() || hasTraySupport()) {
     createTray();
   }
 });
