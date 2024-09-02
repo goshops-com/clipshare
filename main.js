@@ -25,7 +25,8 @@ const AWS = require('aws-sdk');
 
 let tray = null;
 let window = null;
-// Add this function to check if we're running on GNOME
+
+// Function to check if we're running on GNOME
 function isGNOME() {
   return (
     process.platform === 'linux' &&
@@ -76,7 +77,7 @@ function createWindow() {
   window = new BrowserWindow({
     width: 325,
     height: 330,
-    show: false,
+    show: isGNOME(), // Show the window immediately on GNOME
     frame: false,
     resizable: false,
     webPreferences: {
@@ -100,6 +101,14 @@ function createWindow() {
     }
   );
 
+  // For GNOME, set the window position to top-right corner
+  if (isGNOME()) {
+    const { screen } = require('electron');
+    const primaryDisplay = screen.getPrimaryDisplay();
+    const { width, height } = primaryDisplay.workAreaSize;
+    window.setPosition(width - 325, 0);
+  }
+
   // Enable DevTools for debugging
   // window.webContents.openDevTools({ mode: 'detach' });
 }
@@ -107,28 +116,42 @@ function createWindow() {
 function handleTrayClick(event, bounds) {
   if (!window) return;
 
-  const { x, y } = bounds;
-  const { height, width } = window.getBounds();
-
-  const yPosition = process.platform === 'darwin' ? y : y - height;
-  window.setBounds({
-    x: x - width / 2,
-    y: yPosition,
-    height,
-    width,
-  });
-
-  if (window.isVisible()) {
-    console.log('Tray clicked: Hiding window');
-    window.hide();
+  if (isGNOME()) {
+    // For GNOME, we'll just show/hide the window
+    if (window.isVisible()) {
+      window.hide();
+    } else {
+      window.show();
+      window.focus();
+    }
   } else {
-    console.log('Tray clicked: Showing window');
-    window.show();
-    window.focus();
+    // Existing tray click behavior for other platforms
+    const { x, y } = bounds;
+    const { height, width } = window.getBounds();
+
+    const yPosition = process.platform === 'darwin' ? y : y - height;
+    window.setBounds({
+      x: x - width / 2,
+      y: yPosition,
+      height,
+      width,
+    });
+
+    if (window.isVisible()) {
+      window.hide();
+    } else {
+      window.show();
+      window.focus();
+    }
   }
 }
 
 function createTray() {
+  if (isGNOME()) {
+    console.log('GNOME detected, skipping tray creation');
+    return;
+  }
+
   if (tray) {
     console.log('Tray already exists, destroying old tray');
     tray.destroy();
@@ -136,10 +159,21 @@ function createTray() {
 
   console.log('Creating new tray');
   const iconPath = path.join(__dirname, 'icon-idle.png');
+
   tray = new Tray(iconPath);
   tray.setToolTip('ClipShare');
 
   const contextMenu = Menu.buildFromTemplate([
+    {
+      label: 'Show/Hide Window',
+      click: () => {
+        if (window.isVisible()) {
+          window.hide();
+        } else {
+          window.show();
+        }
+      },
+    },
     {
       label: 'Quit',
       click: () => {
@@ -148,22 +182,19 @@ function createTray() {
     },
   ]);
 
-  if (!isGNOME()) {
-    tray.on('right-click', () => {
-      tray.popUpContextMenu(contextMenu);
-    });
+  tray.on('right-click', () => {
+    tray.popUpContextMenu(contextMenu);
+  });
 
-    tray.on('click', handleTrayClick);
-  } else {
-    tray.setContextMenu(contextMenu);
-    tray.on('click', handleTrayClick);
-  }
+  tray.on('click', handleTrayClick);
 }
 
 app.on('ready', () => {
   console.log('App is ready');
   createWindow();
-  createTray();
+  if (!isGNOME()) {
+    createTray();
+  }
 
   // Periodic cleanup every 6 hours
   // setInterval(cleanupAndRecreate, 6 * 60 * 60 * 1000);
@@ -171,10 +202,10 @@ app.on('ready', () => {
 
 function cleanupAndRecreate() {
   console.log('Performing periodic cleanup and recreation');
-  if (tray) {
+  if (tray && !isGNOME()) {
     tray.destroy();
+    createTray();
   }
-  createTray();
 }
 
 ipcMain.handle('start-recording', (event) => {
@@ -188,14 +219,11 @@ ipcMain.handle('stop-recording', (event) => {
 });
 
 function setTrayIconRecording(isRecording) {
+  if (isGNOME()) return; // Skip tray icon updates on GNOME
+
   const iconPath = isRecording ? 'icon-recording.png' : 'icon-idle.png';
   const fullIconPath = path.join(__dirname, iconPath);
-
-  if (isGNOME()) {
-    tray.setIcon(fullIconPath);
-  } else {
-    tray.setImage(fullIconPath);
-  }
+  tray.setImage(fullIconPath);
 }
 
 let cameraWindow = null;
@@ -313,7 +341,6 @@ ipcMain.on('save-recording', async (event, buffer) => {
   }
 });
 
-// New IPC handler for checking camera permission
 ipcMain.handle('check-camera-permission', async () => {
   console.log('Checking camera permission');
   if (process.platform !== 'darwin') {
@@ -334,7 +361,9 @@ ipcMain.handle('check-camera-permission', async () => {
 
 app.whenReady().then(() => {
   createWindow();
-  createTray();
+  if (!isGNOME()) {
+    createTray();
+  }
 });
 
 app.on('window-all-closed', () => {
