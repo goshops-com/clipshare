@@ -139,22 +139,15 @@ function createTray() {
   console.log('Creating new tray');
   const iconPath = path.join(__dirname, 'icon-idle.png');
 
-  if (isGNOME()) {
-    // For GNOME, use a different approach
-    tray = new AppIndicator({
-      icon: iconPath,
-      menu: Menu.buildFromTemplate([
-        {
-          label: 'Quit',
-          click: () => {
-            app.quit();
-          },
-        },
-      ]),
+  if (!isGNOME()) {
+    tray.on('right-click', () => {
+      tray.popUpContextMenu(contextMenu);
     });
+
+    tray.on('click', handleTrayClick);
   } else {
-    // For other environments, use the standard Tray
-    tray = new Tray(iconPath);
+    tray.setContextMenu(contextMenu);
+    tray.on('click', handleTrayClick);
   }
 
   tray.setToolTip('ClipShare');
