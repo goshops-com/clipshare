@@ -128,8 +128,6 @@ function handleTrayClick(event, bounds) {
   }
 }
 
-const AppIndicator = require('electron-appindicator');
-
 function createTray() {
   if (tray) {
     console.log('Tray already exists, destroying old tray');
