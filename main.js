@@ -136,18 +136,7 @@ function createTray() {
 
   console.log('Creating new tray');
   const iconPath = path.join(__dirname, 'icon-idle.png');
-
-  if (!isGNOME()) {
-    tray.on('right-click', () => {
-      tray.popUpContextMenu(contextMenu);
-    });
-
-    tray.on('click', handleTrayClick);
-  } else {
-    tray.setContextMenu(contextMenu);
-    tray.on('click', handleTrayClick);
-  }
-
+  tray = new Tray(iconPath);
   tray.setToolTip('ClipShare');
 
   const contextMenu = Menu.buildFromTemplate([
@@ -166,8 +155,8 @@ function createTray() {
 
     tray.on('click', handleTrayClick);
   } else {
-    tray.on('status-notifier-click', handleTrayClick);
     tray.setContextMenu(contextMenu);
+    tray.on('click', handleTrayClick);
   }
 }
 
