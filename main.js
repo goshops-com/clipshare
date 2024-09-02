@@ -22,10 +22,13 @@ if (process.platform === 'darwin') {
 }
 
 const AWS = require('aws-sdk');
-const IS_WINDOW_MODE = process.env.MODE === 'window';
+const IS_WINDOW_MODE = process.env.MODE === 'WINDOW';
+
+console.log('IS_WINDOW_MODE', IS_WINDOW_MODE);
 
 let tray = null;
 let window = null;
+let mainWindow = null;
 
 // Ensure single instance
 const gotTheLock = app.requestSingleInstanceLock();
@@ -66,6 +69,12 @@ clipShareAutoLauncher
   });
 
 function createWindow() {
+  if (window) {
+    if (window.isMinimized()) window.restore();
+    window.focus();
+    return;
+  }
+
   window = new BrowserWindow({
     width: 325,
     height: 330,
