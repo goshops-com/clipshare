@@ -22,9 +22,13 @@ if (process.platform === 'darwin') {
 }
 
 const AWS = require('aws-sdk');
+const IS_WINDOW_MODE = process.env.MODE === 'WINDOW';
+
+console.log('IS_WINDOW_MODE', IS_WINDOW_MODE);
 
 let tray = null;
 let window = null;
+let mainWindow = null;
 
 // Ensure single instance
 const gotTheLock = app.requestSingleInstanceLock();
@@ -65,12 +69,18 @@ clipShareAutoLauncher
   });
 
 function createWindow() {
+  if (window) {
+    if (window.isMinimized()) window.restore();
+    window.focus();
+    return;
+  }
+
   window = new BrowserWindow({
     width: 325,
     height: 330,
-    show: false,
-    frame: false,
-    resizable: false,
+    show: IS_WINDOW_MODE,
+    frame: IS_WINDOW_MODE,
+    resizable: IS_WINDOW_MODE,
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
@@ -80,6 +90,16 @@ function createWindow() {
   });
 
   window.loadFile('index.html');
+
+  if (IS_WINDOW_MODE) {
+    window.on('close', (event) => {
+      if (!app.isQuitting) {
+        event.preventDefault();
+        window.hide();
+      }
+      return false;
+    });
+  }
 
   // Request camera permissions
   window.webContents.session.setPermissionRequestHandler(
@@ -121,6 +141,8 @@ function handleTrayClick(event, bounds) {
 }
 
 function createTray() {
+  if (IS_WINDOW_MODE) return;
+
   if (tray) {
     console.log('Tray already exists, destroying old tray');
     tray.destroy();
@@ -149,7 +171,9 @@ function createTray() {
 app.on('ready', () => {
   console.log('App is ready');
   createWindow();
-  createTray();
+  if (!IS_WINDOW_MODE) {
+    createTray();
+  }
 
   // Periodic cleanup every 6 hours
   // setInterval(cleanupAndRecreate, 6 * 60 * 60 * 1000);
@@ -164,12 +188,16 @@ function cleanupAndRecreate() {
 }
 
 ipcMain.handle('start-recording', (event) => {
-  setTrayIconRecording(true);
-  console.log('Recording started, tray icon updated to recording state.');
+  if (!IS_WINDOW_MODE) {
+    setTrayIconRecording(true);
+  }
+  console.log('Recording started');
 });
 
 ipcMain.handle('stop-recording', (event) => {
-  setTrayIconRecording(false);
+  if (!IS_WINDOW_MODE) {
+    setTrayIconRecording(false);
+  }
   console.log('Recording stopped, tray icon updated to idle state.');
 });
 
@@ -326,6 +354,8 @@ app.on('window-all-closed', () => {
 app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) {
     createWindow();
+  } else if (IS_WINDOW_MODE) {
+    window.show();
   }
 });
 
@@ -341,4 +371,5 @@ app.on('before-quit', (event) => {
   if (cameraWindow) {
     cameraWindow.close();
   }
+  app.isQuitting = true;
 });

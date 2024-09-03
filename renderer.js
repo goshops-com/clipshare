@@ -2,6 +2,7 @@ const { ipcRenderer } = require('electron');
 
 document.addEventListener('DOMContentLoaded', () => {
   console.log('DOM fully loaded');
+  const isWindowMode = process.env.MODE === 'window';
 
   async function checkAndRequestCameraPermission() {
     try {
@@ -37,6 +38,26 @@ document.addEventListener('DOMContentLoaded', () => {
   const audioCheckbox = document.getElementById('audioCheckbox');
   const audioDeviceSelect = document.getElementById('audioDeviceSelect');
   const cameraCheckbox = document.getElementById('cameraCheckbox');
+
+  // Add minimize and close buttons for window mode
+  if (isWindowMode) {
+    const controlsDiv = document.createElement('div');
+    controlsDiv.style.position = 'absolute';
+    controlsDiv.style.top = '5px';
+    controlsDiv.style.right = '5px';
+
+    const minimizeBtn = document.createElement('button');
+    minimizeBtn.textContent = '_';
+    minimizeBtn.onclick = () => ipcRenderer.send('minimize-window');
+
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = 'X';
+    closeBtn.onclick = () => ipcRenderer.send('close-window');
+
+    controlsDiv.appendChild(minimizeBtn);
+    controlsDiv.appendChild(closeBtn);
+    document.body.appendChild(controlsDiv);
+  }
 
   cameraCheckbox.addEventListener('change', async () => {
     if (cameraCheckbox.checked) {
