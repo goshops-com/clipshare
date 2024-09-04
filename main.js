@@ -98,9 +98,6 @@ function createWindow() {
       }
     }
   );
-
-  // Enable DevTools for debugging
-  // window.webContents.openDevTools({ mode: 'detach' });
 }
 
 function handleTrayClick(event, bounds) {
@@ -175,73 +172,6 @@ function setTrayIconRecording(isRecording) {
   tray.setImage(path.join(__dirname, iconPath));
 }
 
-let cameraWindow = null;
-let cameraStream = null;
-
-function createCameraWindow() {
-  cameraWindow = new BrowserWindow({
-    width: 200,
-    height: 150,
-    frame: false,
-    alwaysOnTop: true,
-    transparent: true,
-    resizable: false,
-    webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false,
-      enableRemoteModule: true,
-      webSecurity: false,
-      permissions: ['camera', 'microphone'],
-    },
-  });
-
-  cameraWindow.loadFile('camera.html');
-
-  const { screen } = require('electron');
-  const primaryDisplay = screen.getPrimaryDisplay();
-  const { width, height } = primaryDisplay.workAreaSize;
-
-  cameraWindow.setPosition(20, height - 170);
-  cameraWindow.on('closed', () => {
-    cameraWindow = null;
-  });
-}
-
-ipcMain.handle('toggle-camera', async (event, enableCamera) => {
-  console.log('Toggle camera called:', enableCamera);
-  if (enableCamera) {
-    if (!cameraWindow) {
-      createCameraWindow();
-    } else {
-      console.log('Camera window already exists');
-      cameraWindow.show();
-    }
-  } else {
-    if (cameraWindow) {
-      console.log('Closing camera window');
-      cameraWindow.close();
-      cameraWindow = null;
-    }
-  }
-});
-
-ipcMain.handle('get-camera-stream', async () => {
-  if (cameraStream) {
-    return cameraStream.id;
-  }
-  return null;
-});
-
-ipcMain.handle('set-camera-stream', (event, streamId) => {
-  cameraStream = { id: streamId };
-});
-
-ipcMain.handle('release-camera-stream', () => {
-  if (cameraStream) {
-    cameraStream = null;
-  }
-});
-
 ipcMain.handle('get-sources', async (event) => {
   console.log('Received get-sources request');
   try {
@@ -290,7 +220,6 @@ ipcMain.on('save-recording', async (event, buffer) => {
   }
 });
 
-// New IPC handler for checking camera permission
 ipcMain.handle('check-camera-permission', async () => {
   console.log('Checking camera permission');
   if (process.platform !== 'darwin') {
@@ -309,7 +238,6 @@ ipcMain.handle('check-camera-permission', async () => {
   }
 });
 
-// Ensure the app closes completely on all platforms
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
@@ -322,10 +250,8 @@ app.on('activate', () => {
   }
 });
 
-// Schedule cleanup and recreation
 setInterval(cleanupAndRecreate, 24 * 60 * 60 * 1000); // Every 24 hours
 
-// IPC handler for quitting the app from renderer process
 ipcMain.on('quit-app', () => {
   console.log('Quit app request received');
   app.quit();
