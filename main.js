@@ -22,13 +22,9 @@ if (process.platform === 'darwin') {
 }
 
 const AWS = require('aws-sdk');
-const IS_WINDOW_MODE = process.env.MODE === 'WINDOW';
-
-console.log('IS_WINDOW_MODE', IS_WINDOW_MODE);
 
 let tray = null;
 let window = null;
-let mainWindow = null;
 
 // Ensure single instance
 const gotTheLock = app.requestSingleInstanceLock();
@@ -44,6 +40,19 @@ const clipShareAutoLauncher = new AutoLaunch({
   path: app.getPath('exe'),
 });
 
+const BUCKET_NAME = process.env.BUCKET_NAME;
+const ACL = process.env.ACL || 'public-read';
+const PRESIGN_URL = String(process.env.PRESIGN_URL).toLowerCase() === 'true';
+const PRESIGN_URL_EXPIRY =
+  parseInt(process.env.PRESIGN_URL_EXPIRY, 10) || 86400;
+
+if (!BUCKET_NAME || !process.env.ACCESS_KEY || !process.env.ACCESS_SECRET) {
+  console.error(
+    'Configuration error: BUCKET_NAME, ACCESS_KEY, or ACCESS_SECRET is not defined.'
+  );
+}
+
+// Initialize AWS S3
 const s3 = new AWS.S3({
   accessKeyId: process.env.ACCESS_KEY,
   secretAccessKey: process.env.ACCESS_SECRET,
@@ -51,12 +60,6 @@ const s3 = new AWS.S3({
   signatureVersion: 'v4',
   region: process.env.REGION,
 });
-
-const BUCKET_NAME = process.env.BUCKET_NAME;
-const ACL = process.env.ACL || 'public-read';
-const PRESIGN_URL = String(process.env.PRESIGN_URL).toLowerCase() === 'true';
-const PRESIGN_URL_EXPIRY =
-  parseInt(process.env.PRESIGN_URL_EXPIRY, 10) || 86400;
 
 // Enable AutoLaunch
 clipShareAutoLauncher
@@ -69,18 +72,12 @@ clipShareAutoLauncher
   });
 
 function createWindow() {
-  if (window) {
-    if (window.isMinimized()) window.restore();
-    window.focus();
-    return;
-  }
-
   window = new BrowserWindow({
     width: 325,
     height: 330,
-    show: IS_WINDOW_MODE,
-    frame: IS_WINDOW_MODE,
-    resizable: IS_WINDOW_MODE,
+    show: true,
+    frame: true,
+    resizable: true,
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
@@ -90,16 +87,6 @@ function createWindow() {
   });
 
   window.loadFile('index.html');
-
-  if (IS_WINDOW_MODE) {
-    window.on('close', (event) => {
-      if (!app.isQuitting) {
-        event.preventDefault();
-        window.hide();
-      }
-      return false;
-    });
-  }
 
   // Request camera permissions
   window.webContents.session.setPermissionRequestHandler(
@@ -111,9 +98,6 @@ function createWindow() {
       }
     }
   );
-
-  // Enable DevTools for debugging
-  // window.webContents.openDevTools({ mode: 'detach' });
 }
 
 function handleTrayClick(event, bounds) {
@@ -141,8 +125,6 @@ function handleTrayClick(event, bounds) {
 }
 
 function createTray() {
-  if (IS_WINDOW_MODE) return;
-
   if (tray) {
     console.log('Tray already exists, destroying old tray');
     tray.destroy();
@@ -171,12 +153,10 @@ function createTray() {
 app.on('ready', () => {
   console.log('App is ready');
   createWindow();
-  if (!IS_WINDOW_MODE) {
-    createTray();
+  createTray();
+  if (!BUCKET_NAME || !process.env.ACCESS_KEY || !process.env.ACCESS_SECRET) {
+    window.webContents.send('config-error');
   }
-
-  // Periodic cleanup every 6 hours
-  // setInterval(cleanupAndRecreate, 6 * 60 * 60 * 1000);
 });
 
 function cleanupAndRecreate() {
@@ -187,91 +167,10 @@ function cleanupAndRecreate() {
   createTray();
 }
 
-ipcMain.handle('start-recording', (event) => {
-  if (!IS_WINDOW_MODE) {
-    setTrayIconRecording(true);
-  }
-  console.log('Recording started');
-});
-
-ipcMain.handle('stop-recording', (event) => {
-  if (!IS_WINDOW_MODE) {
-    setTrayIconRecording(false);
-  }
-  console.log('Recording stopped, tray icon updated to idle state.');
-});
-
 function setTrayIconRecording(isRecording) {
   const iconPath = isRecording ? 'icon-recording.png' : 'icon-idle.png';
   tray.setImage(path.join(__dirname, iconPath));
 }
-
-let cameraWindow = null;
-let cameraStream = null;
-
-function createCameraWindow() {
-  cameraWindow = new BrowserWindow({
-    width: 200,
-    height: 150,
-    frame: false,
-    alwaysOnTop: true,
-    transparent: true,
-    resizable: false,
-    webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false,
-      enableRemoteModule: true,
-      webSecurity: false,
-      permissions: ['camera', 'microphone'],
-    },
-  });
-
-  cameraWindow.loadFile('camera.html');
-
-  const { screen } = require('electron');
-  const primaryDisplay = screen.getPrimaryDisplay();
-  const { width, height } = primaryDisplay.workAreaSize;
-
-  cameraWindow.setPosition(20, height - 170);
-  cameraWindow.on('closed', () => {
-    cameraWindow = null;
-  });
-}
-
-ipcMain.handle('toggle-camera', async (event, enableCamera) => {
-  console.log('Toggle camera called:', enableCamera);
-  if (enableCamera) {
-    if (!cameraWindow) {
-      createCameraWindow();
-    } else {
-      console.log('Camera window already exists');
-      cameraWindow.show();
-    }
-  } else {
-    if (cameraWindow) {
-      console.log('Closing camera window');
-      cameraWindow.close();
-      cameraWindow = null;
-    }
-  }
-});
-
-ipcMain.handle('get-camera-stream', async () => {
-  if (cameraStream) {
-    return cameraStream.id;
-  }
-  return null;
-});
-
-ipcMain.handle('set-camera-stream', (event, streamId) => {
-  cameraStream = { id: streamId };
-});
-
-ipcMain.handle('release-camera-stream', () => {
-  if (cameraStream) {
-    cameraStream = null;
-  }
-});
 
 ipcMain.handle('get-sources', async (event) => {
   console.log('Received get-sources request');
@@ -321,7 +220,6 @@ ipcMain.on('save-recording', async (event, buffer) => {
   }
 });
 
-// New IPC handler for checking camera permission
 ipcMain.handle('check-camera-permission', async () => {
   console.log('Checking camera permission');
   if (process.platform !== 'darwin') {
@@ -336,13 +234,8 @@ ipcMain.handle('check-camera-permission', async () => {
     return status;
   } catch (error) {
     console.error('Error checking camera permission:', error);
-    return 'error';
+    return 'unknown';
   }
-});
-
-app.whenReady().then(() => {
-  createWindow();
-  createTray();
 });
 
 app.on('window-all-closed', () => {
@@ -352,24 +245,14 @@ app.on('window-all-closed', () => {
 });
 
 app.on('activate', () => {
-  if (BrowserWindow.getAllWindows().length === 0) {
+  if (window === null) {
     createWindow();
-  } else if (IS_WINDOW_MODE) {
-    window.show();
   }
 });
 
-app.on('before-quit', (event) => {
-  console.log('App is about to quit.');
-  // Optionally, cancel the quit process if needed
-  // event.preventDefault();
+setInterval(cleanupAndRecreate, 24 * 60 * 60 * 1000); // Every 24 hours
 
-  // Close all windows or perform any other cleanup
-  if (window) {
-    window.close();
-  }
-  if (cameraWindow) {
-    cameraWindow.close();
-  }
-  app.isQuitting = true;
+ipcMain.on('quit-app', () => {
+  console.log('Quit app request received');
+  app.quit();
 });

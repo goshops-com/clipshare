@@ -1,43 +1,32 @@
-const { ipcRenderer } = require('electron');
+const { ipcRenderer, app } = require('electron');
 
 document.addEventListener('DOMContentLoaded', () => {
   console.log('DOM fully loaded');
   const isWindowMode = process.env.MODE === 'window';
 
-  async function checkAndRequestCameraPermission() {
-    try {
-      const status = await ipcRenderer.invoke('check-camera-permission');
-      console.log('Camera permission status:', status);
+  function areEnvVariablesSet() {
+    const requiredEnvVariables = [
+      'ACCESS_KEY',
+      'ACCESS_SECRET',
+      'ENDPOINT',
+      'REGION',
+      'BUCKET_NAME',
+    ];
 
-      if (status === 'unknown' || status !== 'granted') {
-        console.log('Requesting camera permission...');
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-        });
-        stream.getTracks().forEach((track) => track.stop());
-        console.log('Camera permission granted');
-        return true;
-      } else if (status === 'granted') {
-        return true;
-      } else {
-        console.log('Camera permission not granted');
+    for (const variable of requiredEnvVariables) {
+      if (!process.env[variable]) {
+        console.error(`Environment variable ${variable} is not set`);
+        alert(`Please make sure all required environment variables are set.`);
+        ipcRenderer.send('quit-app'); // Solicita ao processo principal para fechar o aplicativo
         return false;
       }
-    } catch (error) {
-      console.error('Error requesting camera permission:', error);
-      return false;
     }
+    return true;
   }
-
-  // Call this function when your app starts
-  // checkAndRequestCameraPermission();
 
   const startBtn = document.getElementById('startBtn');
   const stopBtn = document.getElementById('stopBtn');
   const cancelBtn = document.getElementById('cancelBtn');
-  const audioCheckbox = document.getElementById('audioCheckbox');
-  const audioDeviceSelect = document.getElementById('audioDeviceSelect');
-  const cameraCheckbox = document.getElementById('cameraCheckbox');
 
   // Add minimize and close buttons for window mode
   if (isWindowMode) {
@@ -59,36 +48,8 @@ document.addEventListener('DOMContentLoaded', () => {
     document.body.appendChild(controlsDiv);
   }
 
-  cameraCheckbox.addEventListener('change', async () => {
-    if (cameraCheckbox.checked) {
-      const permissionGranted = await checkAndRequestCameraPermission();
-      if (permissionGranted) {
-        ipcRenderer.invoke('toggle-camera', true);
-      } else {
-        cameraCheckbox.checked = false;
-        alert('Camera permission is required to use this feature.');
-      }
-    } else {
-      ipcRenderer.invoke('toggle-camera', false);
-      await releaseCameraStream();
-    }
-  });
-
-  async function releaseCameraStream() {
-    const streamId = await ipcRenderer.invoke('get-camera-stream');
-    if (streamId) {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { mandatory: { chromeMediaSourceId: streamId } },
-      });
-      stream.getTracks().forEach((track) => track.stop());
-      await ipcRenderer.invoke('release-camera-stream');
-    }
-  }
-
   console.log('Start button found:', !!startBtn);
   console.log('Stop button found:', !!stopBtn);
-  console.log('Audio checkbox found:', !!audioCheckbox);
-  console.log('Audio device select found:', !!audioDeviceSelect);
 
   let mediaRecorder;
   let recordedChunks = [];
@@ -104,49 +65,16 @@ document.addEventListener('DOMContentLoaded', () => {
     loadingOverlay.style.display = 'none';
   }
 
-  async function populateAudioDevices() {
-    try {
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      console.log('All devices:', devices);
-      const audioDevices = devices.filter(
-        (device) => device.kind === 'audioinput'
-      );
-      console.log('Audio devices:', audioDevices);
-      audioDeviceSelect.innerHTML = '';
-      audioDevices.forEach((device) => {
-        const option = document.createElement('option');
-        option.value = device.deviceId;
-        option.text =
-          device.label || `Microphone ${audioDeviceSelect.options.length + 1}`;
-        audioDeviceSelect.appendChild(option);
-      });
-      console.log('Audio devices populated:', audioDeviceSelect.options.length);
-    } catch (error) {
-      console.error('Error populating audio devices:', error);
-    }
-  }
-
-  audioCheckbox.addEventListener('change', () => {
-    console.log('Audio checkbox changed, checked:', audioCheckbox.checked);
-    if (audioCheckbox.checked) {
-      audioDeviceSelect.classList.add('visible');
-      populateAudioDevices(); // Populate devices when checked
-    } else {
-      audioDeviceSelect.classList.remove('visible');
-    }
-  });
-
   startBtn.addEventListener('click', () => {
-    if (audioCheckbox.checked && !audioDeviceSelect.value) {
-      alert('Please select an audio device.');
+    if (!areEnvVariablesSet()) {
+      console.log(
+        'Recording cannot start due to missing environment variables.'
+      );
       return;
     }
-    ipcRenderer.invoke('start-recording'); // Notify main process that recording is starting
-    startRecording(
-      audioCheckbox.checked,
-      audioDeviceSelect.value,
-      cameraCheckbox.checked
-    );
+
+    ipcRenderer.invoke('start-recording');
+    startRecording();
   });
 
   stopBtn.addEventListener('click', () => {
@@ -156,12 +84,12 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   cancelBtn.addEventListener('click', () => {
-    console.log('Stop button clicked');
+    console.log('Cancel button clicked');
     ipcRenderer.invoke('stop-recording');
     cancelRecording();
   });
 
-  async function startRecording(recordAudio, audioDeviceId, enableCamera) {
+  async function startRecording() {
     try {
       const sources = await ipcRenderer.invoke('get-sources');
       const source = sources[0];
@@ -176,25 +104,6 @@ document.addEventListener('DOMContentLoaded', () => {
       };
 
       let videoStream = await navigator.mediaDevices.getUserMedia(constraints);
-
-      if (recordAudio && audioDeviceId) {
-        try {
-          const audioStream = await navigator.mediaDevices.getUserMedia({
-            audio: {
-              deviceId: { exact: audioDeviceId },
-              noiseSuppression: true,
-              echoCancellation: true,
-              autoGainControl: true,
-            },
-          });
-          videoStream.addTrack(audioStream.getAudioTracks()[0]);
-        } catch (audioError) {
-          console.error('Error capturing audio:', audioError);
-          alert(
-            `Error capturing audio: ${audioError.message}. Continuing with video only.`
-          );
-        }
-      }
 
       const options = { mimeType: 'video/webm; codecs=vp9' };
       mediaRecorder = new MediaRecorder(videoStream, options);
@@ -212,19 +121,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  startBtn.addEventListener('click', () => {
-    if (audioCheckbox.checked && !audioDeviceSelect.value) {
-      alert('Please select an audio device.');
-      return;
-    }
-    ipcRenderer.invoke('start-recording'); // Notify main process that recording is starting
-    startRecording(
-      audioCheckbox.checked,
-      audioDeviceSelect.value,
-      cameraCheckbox.checked
-    );
-  });
-
   function stopRecording() {
     console.log('Stopping recording');
     if (mediaRecorder && mediaRecorder.state !== 'inactive') {
@@ -232,6 +128,7 @@ document.addEventListener('DOMContentLoaded', () => {
       console.log('MediaRecorder stopped');
       startBtn.disabled = false;
       stopBtn.disabled = true;
+      cancelBtn.disabled = true;
       console.log('Buttons updated');
     } else {
       console.log('MediaRecorder not active, cannot stop');
@@ -287,9 +184,6 @@ document.addEventListener('DOMContentLoaded', () => {
     alert(`Error saving or uploading recording: ${error}`);
     hideLoading();
   });
-
-  // Initialize audio devices
-  populateAudioDevices();
 
   console.log('Renderer script loaded');
 });
