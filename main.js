@@ -175,6 +175,14 @@ app.on('ready', () => {
     createTray();
   }
 
+  // Check for required environment variables
+  if (!BUCKET_NAME || !process.env.ACCESS_KEY || !process.env.ACCESS_SECRET) {
+    window.webContents.send('config-error');
+    console.error(
+      'Configuration error: BUCKET_NAME, ACCESS_KEY, or ACCESS_SECRET is not defined.'
+    );
+  }
+
   // Periodic cleanup every 6 hours
   // setInterval(cleanupAndRecreate, 6 * 60 * 60 * 1000);
 });
@@ -372,4 +380,10 @@ app.on('before-quit', (event) => {
     cameraWindow.close();
   }
   app.isQuitting = true;
+});
+
+// New IPC handler for quitting the app when .env variable is not set
+ipcMain.on('quit-app', () => {
+  console.log('Quit app request received');
+  app.quit();
 });

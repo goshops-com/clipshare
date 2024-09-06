@@ -28,6 +28,25 @@ document.addEventListener('DOMContentLoaded', () => {
       return false;
     }
   }
+  function areEnvVariablesSet() {
+    const requiredEnvVariables = [
+      'ACCESS_KEY',
+      'ACCESS_SECRET',
+      'ENDPOINT',
+      'REGION',
+      'BUCKET_NAME',
+    ];
+
+    for (const variable of requiredEnvVariables) {
+      if (!process.env[variable]) {
+        console.error(`Environment variable ${variable} is not set`);
+        alert(`Please make sure all required environment variables are set.`);
+        ipcRenderer.send('quit-app'); // Request the main process to close the app
+        return false;
+      }
+    }
+    return true;
+  }
 
   // Call this function when your app starts
   // checkAndRequestCameraPermission();
@@ -139,6 +158,12 @@ document.addEventListener('DOMContentLoaded', () => {
   startBtn.addEventListener('click', () => {
     if (audioCheckbox.checked && !audioDeviceSelect.value) {
       alert('Please select an audio device.');
+      return;
+    }
+    if (!areEnvVariablesSet()) {
+      console.log(
+        'Recording cannot start due to missing environment variables.'
+      );
       return;
     }
     ipcRenderer.invoke('start-recording'); // Notify main process that recording is starting
