@@ -86,9 +86,49 @@ For production, run the packaged application from the `dist/` directory.
 4. **Stop**: Click "Stop Recording" when finished.
 5. **Share**: After automatic upload, use the provided URL to share your recording.
 
+## 🚀 AWS Infrastructure Deployment
+
+For production deployments, ClipShare provides an automated AWS infrastructure setup using Terraform. This creates a complete, secure, and scalable infrastructure in minutes.
+
+### Quick Deployment
+
+```bash
+# Navigate to infrastructure directory
+cd infrastructure
+
+# Configure your deployment
+cp terraform.tfvars.example terraform.tfvars
+# Edit terraform.tfvars with your bucket name and domain
+
+# Deploy with a single command
+./scripts/deploy.sh
+```
+
+### What's Included
+
+- **S3 Bucket**: Private, encrypted storage with lifecycle policies
+- **CloudFront CDN**: Global content delivery with SSL/TLS
+- **ACM Certificate**: Automated SSL certificate management
+- **Route53 DNS**: Custom domain management
+- **Security Best Practices**: Private buckets, OAI, CORS configuration
+
+### Prerequisites
+
+- AWS account with appropriate permissions
+- Terraform installed
+- Domain registered in Route53 (optional but recommended)
+- [See full deployment guide](infrastructure/docs/deployment.md) for details
+
+### Cost Estimate
+
+- **S3 Storage**: ~$0.023/GB/month (after lifecycle optimization)
+- **CloudFront**: ~$0.085/GB transferred + $0.01/10,000 requests
+- **Route53**: ~$0.50/month per hosted zone
+- **Total**: Typically $5-20/month for moderate usage
+
 ## 🏠 Self-Hosted Setup
 
-If you don't intend to use an external S3 service, you can set up a MinIO docker container for local storage. Here's an example `docker-compose.yml` file:
+If you prefer a local development setup or don't intend to use AWS, you can set up a MinIO docker container for local storage. Here's an example `docker-compose.yml` file:
 
 ```yaml
 version: '3'

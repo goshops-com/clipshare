@@ -1,0 +1,35 @@
+# AWS Configuration
+aws_region = "us-east-1"
+environment = "production"
+
+# S3 Configuration
+bucket_name = "clipshare-videos-yourdomain"
+
+# Domain Configuration
+domain_name = "clipshare.yourdomain.com"
+route53_zone_name = "yourdomain.com"
+cloudfront_aliases = ["clipshare.yourdomain.com"]
+acm_subject_alternative_names = ["*.yourdomain.com"]
+
+# CORS Configuration (restrict to your app domains in production)
+allowed_origins = ["https://yourdomain.com", "https://www.yourdomain.com", "app://localhost"]
+
+# DNS Configuration
+create_apex_record = false
+create_www_record = true
+custom_dns_records = {
+  "app" = ""  # Creates app.yourdomain.com
+  "api" = ""  # Creates api.yourdomain.com (if needed)
+}
+
+# Health Check (optional)
+create_health_check = false
+health_check_path = "/"
+
+# Tags for resource organization
+tags = {
+  Environment = "production"
+  Project     = "ClipShare"
+  Owner       = "your-name"
+  CostCenter  = "engineering"
+}
