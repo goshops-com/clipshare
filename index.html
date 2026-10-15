@@ -28,6 +28,29 @@
       </div>
 
       <div class="space-y-4">
+        <div>
+          <label class="text-xs text-gray-500 font-medium">
+            Source
+            <select
+              id="sourceSelect"
+              class="mt-1 w-full px-2 py-1 text-sm text-gray-700 border rounded-lg focus:outline-none focus:border-indigo-500"
+            ></select>
+          </label>
+          <label
+            class="mt-2 flex items-center space-x-3 cursor-pointer text-sm text-gray-700"
+          >
+            <input
+              type="checkbox"
+              id="areaCheckbox"
+              class="form-checkbox h-4 w-4 text-indigo-600"
+            />
+            <span class="flex items-center space-x-2">
+              <i data-lucide="crop" class="w-4 h-4"></i>
+              <span>Selected area only</span>
+            </span>
+          </label>
+        </div>
+
         <label class="flex items-center space-x-3 cursor-pointer">
           <input
             type="checkbox"
@@ -58,6 +81,27 @@
             <span>Camera</span>
           </span>
         </label>
+
+        <div class="grid grid-cols-2 gap-2">
+          <label class="text-xs text-gray-500 font-medium">
+            Quality
+            <select
+              id="qualitySelect"
+              class="mt-1 w-full px-2 py-1 text-sm text-gray-700 border rounded-lg focus:outline-none focus:border-indigo-500"
+            >
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+            </select>
+          </label>
+          <label class="text-xs text-gray-500 font-medium">
+            Format
+            <select
+              id="formatSelect"
+              class="mt-1 w-full px-2 py-1 text-sm text-gray-700 border rounded-lg focus:outline-none focus:border-indigo-500"
+            ></select>
+          </label>
+        </div>
       </div>
 
       <div id="controlButtons" class="mt-8 space-y-4">
@@ -156,6 +200,13 @@
 
       stopBtn.addEventListener('click', handleStopOrCancel);
       cancelBtn.addEventListener('click', handleStopOrCancel);
+
+      // Recording never started (area selection cancelled or an error)
+      document.addEventListener('recording-aborted', () => {
+        startBtn.classList.remove('hidden');
+        recordingControls.classList.add('hidden');
+        recordingControls.classList.remove('flex');
+      });
     </script>
   </body>
 </html>

@@ -77,7 +77,7 @@ function createWindow() {
 
   window = new BrowserWindow({
     width: 325,
-    height: 330,
+    height: 480,
     show: IS_WINDOW_MODE,
     frame: IS_WINDOW_MODE,
     resizable: IS_WINDOW_MODE,
@@ -86,10 +86,15 @@ function createWindow() {
       contextIsolation: false,
       enableRemoteModule: true,
       webSecurity: false,
+      // Keep area-recording frames flowing while the tray window is hidden
+      backgroundThrottling: false,
     },
   });
 
   window.loadFile('index.html');
+
+  // Let the renderer refresh the source list whenever the window is opened
+  window.on('focus', () => window.webContents.send('window-focused'));
 
   if (IS_WINDOW_MODE) {
     window.on('close', (event) => {
@@ -225,6 +230,8 @@ function createCameraWindow() {
     alwaysOnTop: true,
     transparent: true,
     resizable: false,
+    hasShadow: false,
+    skipTaskbar: true,
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
@@ -234,6 +241,10 @@ function createCameraWindow() {
     },
   });
 
+  // Stay above everything, including full-screen apps and other spaces
+  cameraWindow.setAlwaysOnTop(true, 'screen-saver');
+  cameraWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+
   cameraWindow.loadFile('camera.html');
 
   const { screen } = require('electron');
@@ -241,10 +252,39 @@ function createCameraWindow() {
   const { width, height } = primaryDisplay.workAreaSize;
 
   cameraWindow.setPosition(20, height - 170);
+  cameraWindow.on('move', sendCameraBounds);
+  cameraWindow.on('moved', sendCameraBounds);
   cameraWindow.on('closed', () => {
     cameraWindow = null;
+    sendCameraBounds();
+  });
+  sendCameraBounds();
+}
+
+// macOS screen capture leaves out this app's own windows, so the recorder
+// draws the camera into the video itself at the bubble's on-screen position.
+function sendCameraBounds() {
+  if (!window || window.isDestroyed()) return;
+  if (!cameraWindow || cameraWindow.isDestroyed()) {
+    window.webContents.send('camera-bounds', null);
+    return;
+  }
+  const { screen } = require('electron');
+  const bounds = cameraWindow.getBounds();
+  const display = screen.getDisplayMatching(bounds);
+  window.webContents.send('camera-bounds', {
+    bounds,
+    display: { bounds: display.bounds, scaleFactor: display.scaleFactor },
   });
 }
+
+ipcMain.handle('get-display', (event, displayId) => {
+  const { screen } = require('electron');
+  const display =
+    screen.getAllDisplays().find((d) => String(d.id) === String(displayId)) ||
+    screen.getPrimaryDisplay();
+  return { bounds: display.bounds, scaleFactor: display.scaleFactor };
+});
 
 ipcMain.handle('toggle-camera', async (event, enableCamera) => {
   console.log('Toggle camera called:', enableCamera);
@@ -260,6 +300,7 @@ ipcMain.handle('toggle-camera', async (event, enableCamera) => {
       console.log('Closing camera window');
       cameraWindow.close();
       cameraWindow = null;
+      sendCameraBounds();
     }
   }
 });
@@ -284,24 +325,110 @@ ipcMain.handle('release-camera-stream', () => {
 ipcMain.handle('get-sources', async (event) => {
   console.log('Received get-sources request');
   try {
-    const sources = await desktopCapturer.getSources({ types: ['screen'] });
-    console.log('Sources:', sources);
-    return sources;
+    const sources = await desktopCapturer.getSources({
+      types: ['screen', 'window'],
+      thumbnailSize: { width: 0, height: 0 },
+    });
+    // Don't offer ClipShare's own windows as recording targets
+    const ownIds = BrowserWindow.getAllWindows().map((w) =>
+      w.getMediaSourceId()
+    );
+    return sources
+      .filter((source) => !ownIds.includes(source.id))
+      .map(({ id, name, display_id }) => ({ id, name, display_id }));
   } catch (error) {
     console.error('Error getting sources:', error);
     throw error;
   }
 });
 
-ipcMain.on('save-recording', async (event, buffer) => {
-  const fileName = `${ulid()}.webm`;
+let areaWindow = null;
+let resolveArea = null;
+
+function finishAreaSelection(result) {
+  if (resolveArea) resolveArea(result);
+  resolveArea = null;
+  if (areaWindow) {
+    const win = areaWindow;
+    areaWindow = null;
+    win.close();
+  }
+}
+
+// Opens a transparent overlay over the given display and resolves with the
+// dragged rectangle (in display-relative DIPs), or null if cancelled.
+ipcMain.handle('select-area', (event, displayId) => {
+  const { screen } = require('electron');
+  const display =
+    screen.getAllDisplays().find((d) => String(d.id) === String(displayId)) ||
+    screen.getPrimaryDisplay();
+
+  finishAreaSelection(null);
+
+  areaWindow = new BrowserWindow({
+    ...display.bounds,
+    frame: false,
+    transparent: true,
+    resizable: false,
+    movable: false,
+    hasShadow: false,
+    skipTaskbar: true,
+    enableLargerThanScreen: true,
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false,
+    },
+  });
+  areaWindow.setAlwaysOnTop(true, 'screen-saver');
+  areaWindow.setBounds(display.bounds);
+  areaWindow.loadFile('area.html');
+  const win = areaWindow;
+  win.on('closed', () => {
+    if (areaWindow === win) finishAreaSelection(null);
+  });
+
+  return new Promise((resolve) => {
+    resolveArea = (rect) =>
+      resolve(
+        rect && {
+          rect,
+          display: {
+            width: display.bounds.width,
+            height: display.bounds.height,
+            scaleFactor: display.scaleFactor,
+          },
+        }
+      );
+  });
+});
+
+ipcMain.on('area-selected', (event, rect) => {
+  if (!areaWindow || event.sender !== areaWindow.webContents) return;
+  if (rect) {
+    // The OS may nudge the overlay (e.g. below the macOS menu bar), so
+    // translate from overlay coordinates to display coordinates.
+    const { screen } = require('electron');
+    const content = areaWindow.getContentBounds();
+    const display = screen.getDisplayMatching(content);
+    rect = {
+      ...rect,
+      x: rect.x + content.x - display.bounds.x,
+      y: rect.y + content.y - display.bounds.y,
+    };
+  }
+  finishAreaSelection(rect);
+});
+
+ipcMain.on('save-recording', async (event, buffer, format = {}) => {
+  const { extension = 'webm', contentType = 'video/webm' } = format;
+  const fileName = `${ulid()}.${extension}`;
   try {
     const params = {
       Bucket: BUCKET_NAME,
       Key: fileName,
       Body: buffer,
       ACL: ACL,
-      ContentType: 'video/webm',
+      ContentType: contentType,
     };
 
     const result = await s3.upload(params).promise();
